@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from "react";
 import {
   collection,
-  getDocs,
   addDoc,
   query,
   orderBy,
   onSnapshot,
   updateDoc,
   doc,
+  getDocs,
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { Link } from "react-router-dom";
@@ -28,30 +28,25 @@ const HomePage = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [showNotifs, setShowNotifs] = useState(false);
 
-  // 🔹 Получение билетов
+  // 🔹 Подписка на билеты в реальном времени
   useEffect(() => {
-    const fetchTickets = async () => {
-      try {
-        const querySnapshot = await getDocs(collection(db, "tickets"));
-        const ticketArray = querySnapshot.docs.map((doc) => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
+    const q = query(collection(db, "tickets"), orderBy("date", "asc"));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const ticketArray = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
 
-        // Премиум билеты будут выше
-        const sorted = ticketArray.sort(
-          (a, b) => (b.premium === true) - (a.premium === true)
-        );
+      // Премиум билеты выше
+      const sorted = ticketArray.sort(
+        (a, b) => (b.premium === true) - (a.premium === true)
+      );
 
-        setTickets(sorted);
-      } catch (error) {
-        console.error("Ошибка при загрузке билетов:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
+      setTickets(sorted);
+      setLoading(false);
+    });
 
-    fetchTickets();
+    return () => unsubscribe();
   }, []);
 
   // 🔹 Создание тестовой коллекции уведомлений (если пусто)
@@ -101,11 +96,11 @@ const HomePage = () => {
     }
   };
 
-  // 🔹 Фильтруем билеты по условиям
+  // 🔹 Фильтруем билеты
   const filteredTickets = tickets.filter((ticket) => {
     const matchesSearch =
-      ticket.concertName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      ticket.city.toLowerCase().includes(searchQuery.toLowerCase());
+      ticket.concertName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      ticket.city?.toLowerCase().includes(searchQuery.toLowerCase());
 
     const matchesCity = selectedCity ? ticket.city === selectedCity : true;
 

@@ -9,6 +9,7 @@ import {
 import { onAuthStateChanged, signOut } from "firebase/auth";
 import { auth } from "./firebase";
 
+// 🔹 Импорты страниц
 import HomePage from "./pages/HomePage";
 import AddTicketPage from "./pages/AddTicketPage";
 import LoginPage from "./pages/LoginPage";
@@ -24,12 +25,23 @@ function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
+  // 🔹 Стейт для "обновления данных"
+  const [refreshKey, setRefreshKey] = useState(0);
+
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setLoading(false);
     });
     return () => unsubscribe();
+  }, []);
+
+  // 🔹 Автоматическое обновление каждые 15 сек
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setRefreshKey((prev) => prev + 1);
+    }, 15000);
+    return () => clearInterval(interval);
   }, []);
 
   const handleLogout = async () => {
@@ -40,7 +52,7 @@ function App() {
   // ✅ Общие функции уведомлений
   const toastConfig = {
     position: "top-right",
-    autoClose: 3000, // закрывается через 3 сек
+    autoClose: 3000,
     hideProgressBar: false,
     closeOnClick: true,
     pauseOnHover: true,
@@ -75,11 +87,6 @@ function App() {
               Главная
             </Link>
             {user && user.emailVerified && (
-              <Link to='/add' style={styles.link}>
-                Добавить билет
-              </Link>
-            )}
-            {user && user.emailVerified && (
               <Link to='/mytickets' style={styles.link}>
                 Мои билеты
               </Link>
@@ -108,7 +115,7 @@ function App() {
         {/* Контент */}
         <div style={styles.content}>
           <Routes>
-            <Route path='/' element={<HomePage />} />
+            <Route path='/' element={<HomePage refreshKey={refreshKey} />} />
             <Route
               path='/add'
               element={
@@ -117,6 +124,7 @@ function App() {
                     user={user}
                     showSuccessToast={showSuccessToast}
                     showErrorToast={showErrorToast}
+                    refreshKey={refreshKey}
                   />
                 ) : (
                   <Navigate to='/login' />
@@ -127,7 +135,7 @@ function App() {
               path='/mytickets'
               element={
                 user && user.emailVerified ? (
-                  <MyTicketsPage user={user} />
+                  <MyTicketsPage user={user} refreshKey={refreshKey} />
                 ) : (
                   <Navigate to='/login' />
                 )
@@ -138,7 +146,7 @@ function App() {
               element={
                 user?.email === "salimlikerim5@gmail.com" &&
                 user.emailVerified ? (
-                  <AdminPage />
+                  <AdminPage refreshKey={refreshKey} />
                 ) : (
                   <Navigate to='/login' />
                 )
@@ -153,7 +161,10 @@ function App() {
                 />
               }
             />
-            <Route path='/ticket/:id' element={<TicketDetailsPage />} />
+            <Route
+              path='/ticket/:id'
+              element={<TicketDetailsPage refreshKey={refreshKey} />}
+            />
           </Routes>
         </div>
 
