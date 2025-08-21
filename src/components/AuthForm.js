@@ -1,11 +1,14 @@
+// src/components/AuthForm.js
 import React, { useState } from "react";
 import { auth } from "../firebase";
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  sendEmailVerification,
+  signOut,
 } from "firebase/auth";
-import { useNavigate } from "react-router-dom"; // импортируем навигацию
-import "./AuthForm.css"; // Подключаем стили
+import { useNavigate } from "react-router-dom";
+import "./AuthForm.css";
 
 export default function AuthForm() {
   const [isRegister, setIsRegister] = useState(false);
@@ -13,7 +16,7 @@ export default function AuthForm() {
   const [password, setPassword] = useState("");
   const [status, setStatus] = useState("");
   const [loading, setLoading] = useState(false);
-  const navigate = useNavigate(); // хук для переходов
+  const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -22,15 +25,38 @@ export default function AuthForm() {
 
     try {
       if (isRegister) {
-        await createUserWithEmailAndPassword(auth, email, password);
-        setStatus("✅ Регистрация успешна!");
-      } else {
-        await signInWithEmailAndPassword(auth, email, password);
-        setStatus("✅ Вход выполнен успешно!");
-      }
+        // 👉 регистрация
+        const userCredential = await createUserWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
+        const user = userCredential.user;
 
-      // 👉 после успешной регистрации/входа переброс на главную
-      navigate("/");
+        // 👉 отправляем письмо подтверждения
+        await sendEmailVerification(user);
+        setStatus("📩 На вашу почту отправлено письмо для подтверждения!");
+
+        // 👉 сразу выходим из аккаунта, чтобы юзер не попал в приложение без подтверждения
+        await signOut(auth);
+      } else {
+        // 👉 вход
+        const userCredential = await signInWithEmailAndPassword(
+          auth,
+          email,
+          password
+        );
+        const user = userCredential.user;
+
+        if (!user.emailVerified) {
+          setStatus("⚠️ Подтвердите почту перед входом!");
+          await signOut(auth);
+          return;
+        }
+
+        setStatus("✅ Вход выполнен успешно!");
+        navigate("/"); // переход на главную только если email подтвержден
+      }
     } catch (err) {
       setStatus("❌ Ошибка: " + err.message);
     } finally {
